@@ -1,74 +1,53 @@
-# ---------------------------
-# Stage 0: Base PHP
-# ---------------------------
-FROM php:8.4-fpm
+# Stage 1: Build PHP dependencies
+FROM php:8.2-cli AS php-build
 
-# Set working directory
-WORKDIR /var/www/html
-
-# ---------------------------
-# Install system dependencies
-# ---------------------------
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    libpq-dev \
-    libzip-dev \
-    libonig-dev \
-    libpng-dev \
-    libicu-dev \
-    curl \
-    zip \
-    nodejs \
-    npm \
-    && docker-php-ext-install \
-        pdo \
-        pdo_pgsql \
-        pdo_mysql \
-        mbstring \
-        bcmath \
-        zip \
-        gd \
-        intl \
-        fileinfo \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    git unzip curl libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl gd \
+    && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------
 # Install Composer
-# ---------------------------
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# ---------------------------
-# Copy project files
-# ---------------------------
+WORKDIR /app
+
+# Copy composer files and install dependencies
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader
+
+# Copy rest of app code
 COPY . .
 
-# ---------------------------
-# Set permissions
-# ---------------------------
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+# Stage 2: Build Node/Vite assets
+FROM node:18 AS node-build
+WORKDIR /app
 
-# ---------------------------
-# Install PHP dependencies
-# ---------------------------
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-# ---------------------------
-# Build Node / Vite assets
-# ---------------------------
+COPY package.json package-lock.json ./
 RUN npm install
+
+COPY . .
 RUN npm run build
 
-# ---------------------------
-# Cache Laravel config & routes
-# ---------------------------
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
+# Stage 3: Final runtime image
+FROM php:8.2-cli
 
-# ---------------------------
-# Expose port & start PHP-FPM
-# ---------------------------
-EXPOSE 9000
-CMD ["php-fpm"]
+# Install system dependencies again
+RUN apt-get update && apt-get install -y \
+    libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev unzip curl \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl gd \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy PHP vendor + built assets
+COPY --from=php-build /app /app
+COPY --from=node-build /app/public/build /app/public/build
+
+# Expose Render’s port
+EXPOSE 10000
+
+# Start Laravel server on Render’s assigned port
+CMD php artisan serve --host=0.0.0.0 --port=${PORT}
