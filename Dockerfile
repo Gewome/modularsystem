@@ -13,12 +13,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copy composer files and install dependencies
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader
-
-# Copy the application code
+# Copy the application code (so artisan is available)
 COPY . .
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader
 
 # Build frontend assets with Vite
 RUN npm install && npm run build
