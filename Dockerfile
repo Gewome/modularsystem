@@ -1,4 +1,3 @@
-# Use PHP 8.2 with Apache
 FROM php:8.2-apache
 
 # Install system dependencies
@@ -12,6 +11,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     nodejs \
     npm \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo pdo_pgsql pdo_mysql mbstring bcmath zip gd
 
 # Enable Apache mod_rewrite
