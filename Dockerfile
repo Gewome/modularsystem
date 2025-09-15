@@ -4,7 +4,6 @@ FROM php:8.4-fpm-bullseye AS php-build
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git unzip libzip-dev libpq-dev libpng-dev libonig-dev libxml2-dev \
-    curl nodejs npm \
     && docker-php-ext-install pdo pdo_mysql pdo_pgsql zip bcmath gd intl opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -13,19 +12,31 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copy the application code (so artisan is available)
+# Copy app files
 COPY . .
 
-# Install PHP dependencies
+# Install PHP dependencies (vendor)
 RUN composer install --no-dev --optimize-autoloader
 
-# Build frontend assets with Vite
+
+
+# Stage 2: Node for frontend build
+FROM node:20 AS node-build
+
+WORKDIR /var/www
+
+# Copy app files (needed for npm build)
+COPY . .
+
+# Install frontend dependencies and build assets
 RUN npm install && npm run build
 
-# Stage 2: Production image
+
+
+# Stage 3: Production image
 FROM php:8.4-fpm-bullseye
 
-# Install PHP extensions
+# Install only the PHP extensions needed in production
 RUN apt-get update && apt-get install -y \
     libzip-dev libpq-dev libpng-dev libonig-dev libxml2-dev \
     && docker-php-ext-install pdo pdo_mysql pdo_pgsql zip bcmath gd intl opcache \
@@ -33,14 +44,17 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /var/www
 
-# Copy built app from build stage
+# Copy PHP application (including vendor) from php-build stage
 COPY --from=php-build /var/www /var/www
 
-# Set permissions for Laravel
+# Copy built frontend assets from node-build stage
+COPY --from=node-build /var/www/public/build /var/www/public/build
+
+# Fix permissions for Laravel
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Expose port
+# Expose Laravel's serve port
 EXPOSE 8000
 
-# Start Laravel with PHP built-in server
+# Run Laravel
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
