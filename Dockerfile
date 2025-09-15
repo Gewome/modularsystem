@@ -1,7 +1,7 @@
-# Use official PHP 8.2 with Apache
+# Use PHP 8.2 with Apache
 FROM php:8.2-apache
 
-# Install system dependencies and required libraries
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -10,7 +10,9 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     zip \
     curl \
-    && docker-php-ext-install pdo pdo_pgsql pdo_mysql mbstring bcmath zip
+    nodejs \
+    npm \
+    && docker-php-ext-install pdo pdo_pgsql pdo_mysql mbstring bcmath zip gd
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
@@ -22,10 +24,13 @@ WORKDIR /var/www/html
 COPY . .
 
 # Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+# Install Node dependencies and build Vite assets
+RUN npm install && npm run build
 
 # Generate Laravel key
 RUN php artisan key:generate --force
@@ -34,7 +39,7 @@ RUN php artisan key:generate --force
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Expose port
+# Expose Apache port
 EXPOSE 10000
 
 # Start Apache
