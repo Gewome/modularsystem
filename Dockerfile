@@ -1,7 +1,14 @@
-# Use PHP 8.2 with Apache
-FROM php:8.2-apache
+# ---------------------------
+# Stage 0: Base PHP
+# ---------------------------
+FROM php:8.4-fpm
 
-# Install system dependencies including ICU for intl extension
+# Set working directory
+WORKDIR /var/www/html
+
+# ---------------------------
+# Install system dependencies
+# ---------------------------
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -9,50 +16,59 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libonig-dev \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
     libicu-dev \
-    zip \
     curl \
+    zip \
     nodejs \
     npm \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
+    && docker-php-ext-install \
         pdo \
         pdo_pgsql \
         pdo_mysql \
         mbstring \
         bcmath \
-        gd \
         zip \
+        gd \
         intl \
         fileinfo \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /var/www/html
+# ---------------------------
+# Install Composer
+# ---------------------------
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# ---------------------------
 # Copy project files
+# ---------------------------
 COPY . .
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# ---------------------------
+# Set permissions
+# ---------------------------
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
 
+# ---------------------------
 # Install PHP dependencies
-RUN COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# ---------------------------
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-# Install Node dependencies and build Vite assets
+# ---------------------------
+# Build Node / Vite assets
+# ---------------------------
 RUN npm install
 RUN npm run build
 
-# Set permissions for Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# ---------------------------
+# Cache Laravel config & routes
+# ---------------------------
+RUN php artisan config:cache
+RUN php artisan route:cache
+RUN php artisan view:cache
 
-# Configure Apache to use Laravel's public directory
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN a2enmod rewrite
-
-# Expose port 80 and start Apache
-EXPOSE 80
-CMD ["apache2-foreground"]
+# ---------------------------
+# Expose port & start PHP-FPM
+# ---------------------------
+EXPOSE 9000
+CMD ["php-fpm"]
