@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     zip \
     curl \
-    && docker-php-ext-install pdo pdo_mysql pdo_pgsql zip
+    && docker-php-ext-install pdo pdo_pgsql pdo_mysql mbstring bcmath zip
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
@@ -21,19 +21,20 @@ WORKDIR /var/www/html
 COPY . .
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Run Composer install
-RUN composer install --no-dev --optimize-autoloader
+# Install PHP dependencies (production mode)
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-# Generate Laravel key
-RUN php artisan key:generate
+# Generate Laravel key (if not already set in .env)
+RUN php artisan key:generate --force
 
 # Set permissions for storage & bootstrap/cache
-RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
-# Expose port (Render will map automatically)
+# Expose port (Render auto-maps)
 EXPOSE 10000
 
-# Start Apache in foreground
+# Start Apache
 CMD ["apache2-foreground"]
