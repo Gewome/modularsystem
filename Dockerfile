@@ -78,20 +78,20 @@ RUN chown -R nginx:nginx /var/www/storage /var/www/bootstrap/cache
 RUN mkdir -p /var/www/storage/app/public/qrcodes && \
     chown -R nginx:nginx /var/www/storage/app/public/qrcodes
 
-# Configure PHP-FPM to listen on port 9000
-RUN echo '[global]' > /etc/php83/php-fpm.d/www.conf && \
-    echo 'daemonize = no' >> /etc/php83/php-fpm.d/www.conf && \
-    echo '[www]' >> /etc/php83/php-fpm.d/www.conf && \
-    echo 'listen = 127.0.0.1:9000' >> /etc/php83/php-fpm.d/www.conf && \
-    echo 'pm = dynamic' >> /etc/php83/php-fpm.d/www.conf && \
-    echo 'pm.max_children = 5' >> /etc/php83/php-fpm.d/www.conf && \
-    echo 'pm.start_servers = 2' >> /etc/php83/php-fpm.d/www.conf && \
-    echo 'pm.min_spare_servers = 1' >> /etc/php83/php-fpm.d/www.conf && \
-    echo 'pm.max_spare_servers = 3' >> /etc/php83/php-fpm.d/www.conf
+# Configure PHP-FPM to listen on port 9000 (simplified)
+RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php83/php-fpm.d/www.conf && \
+    sed -i 's/;listen.owner = nginx/listen.owner = nginx/' /etc/php83/php-fpm.d/www.conf && \
+    sed -i 's/;listen.group = nginx/listen.group = nginx/' /etc/php83/php-fpm.d/www.conf && \
+    sed -i 's/;listen.mode = 0660/listen.mode = 0660/' /etc/php83/php-fpm.d/www.conf
 
-# Create startup script
+# Create startup script with debugging
 RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'echo "Starting PHP-FPM..."' >> /start.sh && \
     echo 'php-fpm83 -D' >> /start.sh && \
+    echo 'echo "PHP-FPM started, checking status..."' >> /start.sh && \
+    echo 'sleep 2' >> /start.sh && \
+    echo 'ps aux | grep php-fpm' >> /start.sh && \
+    echo 'echo "Starting Nginx..."' >> /start.sh && \
     echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh
 
