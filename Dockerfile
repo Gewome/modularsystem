@@ -71,12 +71,17 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
-# Fix permissions for Laravel (using nginx user which exists in Alpine)
-RUN chown -R nginx:nginx /var/www/storage /var/www/bootstrap/cache
-
-# Ensure QR code storage folder exists
-RUN mkdir -p /var/www/storage/app/public/qrcodes && \
-    chown -R nginx:nginx /var/www/storage/app/public/qrcodes
+# Create necessary directories and fix permissions
+RUN mkdir -p /var/www/storage/logs && \
+    mkdir -p /var/www/storage/framework/cache && \
+    mkdir -p /var/www/storage/framework/sessions && \
+    mkdir -p /var/www/storage/framework/views && \
+    mkdir -p /var/www/storage/app/public/qrcodes && \
+    mkdir -p /var/www/bootstrap/cache && \
+    chown -R nginx:nginx /var/www/storage && \
+    chown -R nginx:nginx /var/www/bootstrap/cache && \
+    chmod -R 775 /var/www/storage && \
+    chmod -R 775 /var/www/bootstrap/cache
 
 # Configure PHP-FPM to listen on port 9000 (simplified)
 RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php83/php-fpm.d/www.conf && \
@@ -84,13 +89,15 @@ RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php8
     sed -i 's/;listen.group = nginx/listen.group = nginx/' /etc/php83/php-fpm.d/www.conf && \
     sed -i 's/;listen.mode = 0660/listen.mode = 0660/' /etc/php83/php-fpm.d/www.conf
 
-# Create startup script with debugging
+# Create startup script with Laravel setup
 RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'echo "Setting up Laravel..."' >> /start.sh && \
+    echo 'cd /var/www' >> /start.sh && \
+    echo 'php artisan storage:link || echo "Storage link already exists"' >> /start.sh && \
+    echo 'php artisan config:cache || echo "Config cache failed"' >> /start.sh && \
+    echo 'php artisan route:cache || echo "Route cache failed"' >> /start.sh && \
     echo 'echo "Starting PHP-FPM..."' >> /start.sh && \
     echo 'php-fpm83 -D' >> /start.sh && \
-    echo 'echo "PHP-FPM started, checking status..."' >> /start.sh && \
-    echo 'sleep 2' >> /start.sh && \
-    echo 'ps aux | grep php-fpm' >> /start.sh && \
     echo 'echo "Starting Nginx..."' >> /start.sh && \
     echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh
