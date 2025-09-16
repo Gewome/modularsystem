@@ -53,11 +53,8 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 RUN mkdir -p /var/www/storage/app/public/qrcodes && \
     chown -R www-data:www-data /var/www/storage/app/public/qrcodes
 
-# Run Laravel setup commands
+# Run only safe Laravel setup commands
 RUN php artisan storage:link
-RUN php artisan config:clear
-RUN php artisan route:clear
-RUN php artisan cache:clear
 
 # Expose Laravel's serve port
 EXPOSE 8000
