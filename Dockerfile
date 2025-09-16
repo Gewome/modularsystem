@@ -74,7 +74,7 @@ RUN echo 'server { \
     } \
     \
     location ~ \.php$ { \
-        fastcgi_pass unix:/run/php-fpm83.sock; \
+        fastcgi_pass 127.0.0.1:9000; \
         fastcgi_index index.php; \
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name; \
         include fastcgi_params; \
@@ -91,6 +91,17 @@ RUN chown -R nginx:nginx /var/www/storage /var/www/bootstrap/cache
 # Ensure QR code storage folder exists
 RUN mkdir -p /var/www/storage/app/public/qrcodes && \
     chown -R nginx:nginx /var/www/storage/app/public/qrcodes
+
+# Configure PHP-FPM to listen on port 9000
+RUN echo '[global]' > /etc/php83/php-fpm.d/www.conf && \
+    echo 'daemonize = no' >> /etc/php83/php-fpm.d/www.conf && \
+    echo '[www]' >> /etc/php83/php-fpm.d/www.conf && \
+    echo 'listen = 127.0.0.1:9000' >> /etc/php83/php-fpm.d/www.conf && \
+    echo 'pm = dynamic' >> /etc/php83/php-fpm.d/www.conf && \
+    echo 'pm.max_children = 5' >> /etc/php83/php-fpm.d/www.conf && \
+    echo 'pm.start_servers = 2' >> /etc/php83/php-fpm.d/www.conf && \
+    echo 'pm.min_spare_servers = 1' >> /etc/php83/php-fpm.d/www.conf && \
+    echo 'pm.max_spare_servers = 3' >> /etc/php83/php-fpm.d/www.conf
 
 # Create startup script
 RUN echo '#!/bin/sh' > /start.sh && \
