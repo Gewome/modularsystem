@@ -113,8 +113,14 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'php artisan view:clear || echo "View clear failed"' >> /start.sh && \
     echo 'php artisan config:cache || echo "Config cache failed"' >> /start.sh && \
     echo 'php artisan route:cache || echo "Route cache failed"' >> /start.sh && \
+    echo 'echo "Running database migrations..."' >> /start.sh && \
+    echo 'php artisan migrate --force || echo "Migration failed"' >> /start.sh && \
     echo 'echo "Testing database connection..."' >> /start.sh && \
     echo 'php artisan tinker --execute="echo DB::connection()->getPdo() ? \"DB Connected\" : \"DB Failed\";" || echo "DB test failed"' >> /start.sh && \
+    echo 'echo "Testing Laravel app..."' >> /start.sh && \
+    echo 'php artisan tinker --execute="echo app()->version();" || echo "App test failed"' >> /start.sh && \
+    echo 'echo "Checking storage permissions..."' >> /start.sh && \
+    echo 'ls -la /var/www/storage/' >> /start.sh && \
     echo 'echo "Starting PHP-FPM..."' >> /start.sh && \
     echo 'php-fpm83 -D' >> /start.sh && \
     echo 'echo "Starting Nginx..."' >> /start.sh && \
