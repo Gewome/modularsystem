@@ -83,16 +83,12 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
-# Create www-data user and group for Alpine Linux
-RUN addgroup -g 1000 www-data && \
-    adduser -D -s /bin/sh -u 1000 -G www-data www-data
-
-# Fix permissions for Laravel
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+# Fix permissions for Laravel (using nginx user which exists in Alpine)
+RUN chown -R nginx:nginx /var/www/storage /var/www/bootstrap/cache
 
 # Ensure QR code storage folder exists
 RUN mkdir -p /var/www/storage/app/public/qrcodes && \
-    chown -R www-data:www-data /var/www/storage/app/public/qrcodes
+    chown -R nginx:nginx /var/www/storage/app/public/qrcodes
 
 # Create startup script
 RUN echo '#!/bin/sh \
