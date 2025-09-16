@@ -56,25 +56,6 @@ RUN mkdir -p /var/www/storage/app/public/qrcodes && \
 # Run only safe Laravel setup commands
 RUN php artisan storage:link
 
-# Create .env file for production
-RUN echo "APP_NAME=\"Bohol Northern Star College\"" > .env && \
-    echo "APP_ENV=production" >> .env && \
-    echo "APP_KEY=base64:RDsPbXY4+PvCLLPTd5Ri4yGTLtGTMhggGczx+iofA4Y=" >> .env && \
-    echo "APP_DEBUG=false" >> .env && \
-    echo "APP_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}" >> .env && \
-    echo "" >> .env && \
-    echo "DB_CONNECTION=pgsql" >> .env && \
-    echo "DB_HOST=\${DATABASE_HOST:-localhost}" >> .env && \
-    echo "DB_PORT=\${DATABASE_PORT:-5432}" >> .env && \
-    echo "DB_DATABASE=\${DATABASE_NAME:-modular_system}" >> .env && \
-    echo "DB_USERNAME=\${DATABASE_USER:-modular_system_user}" >> .env && \
-    echo "DB_PASSWORD=\${DATABASE_PASSWORD}" >> .env && \
-    echo "" >> .env && \
-    echo "PAYMONGO_PUBLIC_KEY=\${PAYMONGO_PUBLIC_KEY}" >> .env && \
-    echo "PAYMONGO_SECRET_KEY=\${PAYMONGO_SECRET_KEY}" >> .env && \
-    echo "PAYMONGO_SUCCESS_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}/payment/success" >> .env && \
-    echo "PAYMONGO_CANCEL_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}/payment/cancel" >> .env
-
 # Expose Laravel's serve port
 EXPOSE 8000
 
