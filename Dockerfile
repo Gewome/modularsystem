@@ -41,7 +41,10 @@ RUN apk add --no-cache \
     php83-curl \
     php83-tokenizer \
     php83-fileinfo \
-    php83-openssl
+    php83-openssl \
+    php83-dom \
+    php83-xmlwriter \
+    php83-simplexml
 
 WORKDIR /var/www
 
