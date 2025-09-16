@@ -18,117 +18,65 @@ COPY . .
 # Install PHP dependencies (vendor)
 RUN composer install --no-dev --optimize-autoloader
 
-# Stage 2: Production image with Nginx
-FROM nginx:alpine AS production
-
-# Install PHP-FPM (using edge repository for PHP 8.3+)
-RUN apk add --no-cache \
-    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main \
-    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
-    php83 \
-    php83-fpm \
-    php83-pdo \
-    php83-pdo_mysql \
-    php83-pdo_pgsql \
-    php83-zip \
-    php83-bcmath \
-    php83-gd \
-    php83-intl \
-    php83-opcache \
-    php83-json \
-    php83-mbstring \
-    php83-xml \
-    php83-curl \
-    php83-tokenizer \
-    php83-fileinfo \
-    php83-openssl \
-    php83-dom \
-    php83-xmlwriter \
-    php83-simplexml
+# Stage 2: Node for frontend build
+FROM node:20 AS node-build
 
 WORKDIR /var/www
 
-# Copy PHP application from php-build stage
+# Copy app files (needed for npm build)
+COPY . .
+
+# Install frontend dependencies and build assets
+RUN npm install && npm run build
+
+# Stage 3: Production image
+FROM php:8.4-fpm-bullseye
+
+# Install PHP extensions needed in production
+RUN apt-get update && apt-get install -y \
+    libzip-dev libpq-dev libpng-dev libonig-dev libxml2-dev \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql zip bcmath gd intl opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /var/www
+
+# Copy PHP application (including vendor) from php-build stage
 COPY --from=php-build /var/www /var/www
 
-# Create nginx configuration
-RUN echo 'server { \
-    listen 80; \
-    server_name _; \
-    root /var/www/public; \
-    index index.php; \
-    \
-    location / { \
-        try_files $uri $uri/ /index.php?$query_string; \
-    } \
-    \
-    location ~ \.php$ { \
-        fastcgi_pass 127.0.0.1:9000; \
-        fastcgi_index index.php; \
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name; \
-        include fastcgi_params; \
-    } \
-    \
-    location ~ /\.ht { \
-        deny all; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Copy built frontend assets from node-build stage
+COPY --from=node-build /var/www/public/build /var/www/public/build
 
-# Create necessary directories and fix permissions
-RUN mkdir -p /var/www/storage/logs && \
-    mkdir -p /var/www/storage/framework/cache && \
-    mkdir -p /var/www/storage/framework/sessions && \
-    mkdir -p /var/www/storage/framework/views && \
-    mkdir -p /var/www/storage/app/public/qrcodes && \
-    mkdir -p /var/www/bootstrap/cache && \
-    chown -R nginx:nginx /var/www/storage && \
-    chown -R nginx:nginx /var/www/bootstrap/cache && \
-    chmod -R 775 /var/www/storage && \
-    chmod -R 775 /var/www/bootstrap/cache
+# Fix permissions for Laravel
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Configure PHP-FPM to run as nginx user
-RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php83/php-fpm.d/www.conf && \
-    sed -i 's/user = nobody/user = nginx/' /etc/php83/php-fpm.d/www.conf && \
-    sed -i 's/group = nobody/group = nginx/' /etc/php83/php-fpm.d/www.conf && \
-    sed -i 's/;listen.owner = nginx/listen.owner = nginx/' /etc/php83/php-fpm.d/www.conf && \
-    sed -i 's/;listen.group = nginx/listen.group = nginx/' /etc/php83/php-fpm.d/www.conf && \
-    sed -i 's/;listen.mode = 0660/listen.mode = 0660/' /etc/php83/php-fpm.d/www.conf
+# Ensure QR code storage folder exists
+RUN mkdir -p /var/www/storage/app/public/qrcodes && \
+    chown -R www-data:www-data /var/www/storage/app/public/qrcodes
 
-# Create startup script with Laravel setup
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'echo "Setting up Laravel..."' >> /start.sh && \
-    echo 'cd /var/www' >> /start.sh && \
-    echo 'echo "Current directory: $(pwd)"' >> /start.sh && \
-    echo 'echo "Files in /var/www: $(ls -la)"' >> /start.sh && \
-    echo 'echo "Environment check:"' >> /start.sh && \
-    echo 'echo "APP_KEY: $(echo $APP_KEY | cut -c1-10)..."' >> /start.sh && \
-    echo 'echo "DB_CONNECTION: $DB_CONNECTION"' >> /start.sh && \
-    echo 'echo "DB_HOST: $DB_HOST"' >> /start.sh && \
-    echo 'touch /var/www/storage/logs/laravel.log' >> /start.sh && \
-    echo 'chown nginx:nginx /var/www/storage/logs/laravel.log' >> /start.sh && \
-    echo 'chmod 664 /var/www/storage/logs/laravel.log' >> /start.sh && \
-    echo 'php artisan storage:link || echo "Storage link already exists"' >> /start.sh && \
-    echo 'php artisan config:clear || echo "Config clear failed"' >> /start.sh && \
-    echo 'php artisan cache:clear || echo "Cache clear failed"' >> /start.sh && \
-    echo 'php artisan view:clear || echo "View clear failed"' >> /start.sh && \
-    echo 'php artisan config:cache || echo "Config cache failed"' >> /start.sh && \
-    echo 'php artisan route:cache || echo "Route cache failed"' >> /start.sh && \
-    echo 'echo "Running database migrations..."' >> /start.sh && \
-    echo 'php artisan migrate --force || echo "Migration failed"' >> /start.sh && \
-    echo 'echo "Testing database connection..."' >> /start.sh && \
-    echo 'php artisan tinker --execute="echo DB::connection()->getPdo() ? \"DB Connected\" : \"DB Failed\";" || echo "DB test failed"' >> /start.sh && \
-    echo 'echo "Testing Laravel app..."' >> /start.sh && \
-    echo 'php artisan tinker --execute="echo app()->version();" || echo "App test failed"' >> /start.sh && \
-    echo 'echo "Checking storage permissions..."' >> /start.sh && \
-    echo 'ls -la /var/www/storage/' >> /start.sh && \
-    echo 'echo "Starting PHP-FPM..."' >> /start.sh && \
-    echo 'php-fpm83 -D' >> /start.sh && \
-    echo 'echo "Starting Nginx..."' >> /start.sh && \
-    echo 'nginx -g "daemon off;"' >> /start.sh && \
-    chmod +x /start.sh
+# Run only safe Laravel setup commands
+RUN php artisan storage:link
 
-# Expose port
-EXPOSE 80
+# Create .env file for production
+RUN echo "APP_NAME=\"Bohol Northern Star College\"" > .env && \
+    echo "APP_ENV=production" >> .env && \
+    echo "APP_KEY=base64:RDsPbXY4+PvCLLPTd5Ri4yGTLtGTMhggGczx+iofA4Y=" >> .env && \
+    echo "APP_DEBUG=false" >> .env && \
+    echo "APP_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}" >> .env && \
+    echo "" >> .env && \
+    echo "DB_CONNECTION=pgsql" >> .env && \
+    echo "DB_HOST=\${DATABASE_HOST:-localhost}" >> .env && \
+    echo "DB_PORT=\${DATABASE_PORT:-5432}" >> .env && \
+    echo "DB_DATABASE=\${DATABASE_NAME:-modular_system}" >> .env && \
+    echo "DB_USERNAME=\${DATABASE_USER:-modular_system_user}" >> .env && \
+    echo "DB_PASSWORD=\${DATABASE_PASSWORD}" >> .env && \
+    echo "" >> .env && \
+    echo "PAYMONGO_PUBLIC_KEY=\${PAYMONGO_PUBLIC_KEY:-pk_test_zmmTaLjgk6pfav3LVsHnxzMX}" >> .env && \
+    echo "PAYMONGO_SECRET_KEY=\${PAYMONGO_SECRET_KEY:-sk_test_72uUhgeM88acLxyEsF6hNQZp}" >> .env && \
+    echo "PAYMONGO_SUCCESS_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}/payment/success" >> .env && \
+    echo "PAYMONGO_CANCEL_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}/payment/cancel" >> .env
 
-# Start both PHP-FPM and Nginx
-CMD ["/start.sh"]
+# Expose Laravel's serve port
+EXPOSE 8000
+
+# Run Laravel
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
