@@ -18,18 +18,7 @@ COPY . .
 # Install PHP dependencies (vendor)
 RUN composer install --no-dev --optimize-autoloader
 
-# Stage 2: Node for frontend build
-FROM node:20 AS node-build
-
-WORKDIR /var/www
-
-# Copy app files (needed for npm build)
-COPY . .
-
-# Install frontend dependencies and build assets
-RUN npm install && npm run build
-
-# Stage 3: Production image with Nginx
+# Stage 2: Production image with Nginx
 FROM nginx:alpine AS production
 
 # Install PHP-FPM (using edge repository for PHP 8.3+)
@@ -58,9 +47,6 @@ WORKDIR /var/www
 
 # Copy PHP application from php-build stage
 COPY --from=php-build /var/www /var/www
-
-# Copy built frontend assets from node-build stage
-COPY --from=node-build /var/www/public/build /var/www/public/build
 
 # Create nginx configuration
 RUN echo 'server { \
