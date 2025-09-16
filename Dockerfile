@@ -32,25 +32,27 @@ RUN npm install && npm run build
 # Stage 3: Production image with Nginx
 FROM nginx:alpine AS production
 
-# Install PHP-FPM
+# Install PHP-FPM (using edge repository for PHP 8.3+)
 RUN apk add --no-cache \
-    php82 \
-    php82-fpm \
-    php82-pdo \
-    php82-pdo_mysql \
-    php82-pdo_pgsql \
-    php82-zip \
-    php82-bcmath \
-    php82-gd \
-    php82-intl \
-    php82-opcache \
-    php82-json \
-    php82-mbstring \
-    php82-xml \
-    php82-curl \
-    php82-tokenizer \
-    php82-fileinfo \
-    php82-openssl
+    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main \
+    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
+    php83 \
+    php83-fpm \
+    php83-pdo \
+    php83-pdo_mysql \
+    php83-pdo_pgsql \
+    php83-zip \
+    php83-bcmath \
+    php83-gd \
+    php83-intl \
+    php83-opcache \
+    php83-json \
+    php83-mbstring \
+    php83-xml \
+    php83-curl \
+    php83-tokenizer \
+    php83-fileinfo \
+    php83-openssl
 
 WORKDIR /var/www
 
@@ -72,7 +74,7 @@ RUN echo 'server { \
     } \
     \
     location ~ \.php$ { \
-        fastcgi_pass 127.0.0.1:9000; \
+        fastcgi_pass unix:/run/php-fpm83.sock; \
         fastcgi_index index.php; \
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name; \
         include fastcgi_params; \
@@ -92,7 +94,7 @@ RUN mkdir -p /var/www/storage/app/public/qrcodes && \
 
 # Create startup script
 RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'php-fpm82 -D' >> /start.sh && \
+    echo 'php-fpm83 -D' >> /start.sh && \
     echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh
 
