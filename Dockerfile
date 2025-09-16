@@ -91,9 +91,10 @@ RUN mkdir -p /var/www/storage/app/public/qrcodes && \
     chown -R nginx:nginx /var/www/storage/app/public/qrcodes
 
 # Create startup script
-RUN echo '#!/bin/sh \
-php-fpm82 -D \
-nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'php-fpm82 -D' >> /start.sh && \
+    echo 'nginx -g "daemon off;"' >> /start.sh && \
+    chmod +x /start.sh
 
 # Expose port
 EXPOSE 80
