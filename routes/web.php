@@ -128,9 +128,9 @@ Route::middleware(['auth', 'admin', 'check.user.status'])->prefix('admin')->name
     Route::get('/certificate-details/{certificateId}', [AdminController::class, 'getCertificateDetails'])->name('certificate.details');
 
     // QR Codes
-    Route::post('/qr-codes/generate', [AdminController::class, 'generateQrCodes'])->name('admin.qr-codes.generate');
-    Route::get('/qr-codes/by-date', [AdminController::class, 'getQrCodesByDate'])->name('admin.qr-codes.by-date');
-    Route::get('/qr-codes/for-date', [AdminController::class, 'getQrCodesForDate'])->name('admin.qr-codes.for-date');
+    Route::post('/qr-codes/generate', [AdminController::class, 'generateQrCodes'])->name('qr-codes.generate');
+    Route::get('/qr-codes/by-date', [AdminController::class, 'getQrCodesByDate'])->name('qr-codes.by-date');
+    Route::get('/qr-codes/for-date', [AdminController::class, 'getQrCodesForDate'])->name('qr-codes.for-date');
 
     // Update OR number
     Route::post('/enrollments/{enrollmentId}/update-or-number', [AdminController::class, 'updateOrNumber'])->name('enrollments.update.or-number');
