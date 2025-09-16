@@ -1059,6 +1059,7 @@
 </div>
 
     @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <script>
     // Admin dropdown toggle
     document.getElementById('adminDropdown').addEventListener('click', function(e) {
