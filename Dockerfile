@@ -83,6 +83,10 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
+# Create www-data user and group for Alpine Linux
+RUN addgroup -g 1000 www-data && \
+    adduser -D -s /bin/sh -u 1000 -G www-data www-data
+
 # Fix permissions for Laravel
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
