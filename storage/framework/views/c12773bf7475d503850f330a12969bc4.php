@@ -1,0 +1,1 @@
+<?php /**PATH C:\Users\gucor\OneDrive\Documents\Herd\Modular_System\resources\views\Student\certificates.blade.php ENDPATH**/ ?>

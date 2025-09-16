@@ -13,35 +13,75 @@ class PaymentController extends Controller
 {
     public function checkout(Request $request)
     {
-        $amount = $request->input('amount'); // Amount in PHP pesos (e.g., 100 for ₱100)
-        $email = $request->input('email');
-        $sessionCount = $request->input('session_count', 1);
-        $studentId = Auth::user()->id;
+        try {
+            $amount = $request->input('amount'); // Amount in PHP pesos (e.g., 100 for ₱100)
+            $email = $request->input('email');
+            $sessionCount = $request->input('session_count', 1);
+            $studentId = Auth::user()->id;
 
-        $response = Http::withToken(env('PAYMONGO_SECRET_KEY'))
-            ->post('https://api.paymongo.com/v1/checkout_sessions', [
-                'data' => [
-                    'attributes' => [
-                        'line_items' => [
-                            [
-                                'name' => "Modular Class Session" . ($sessionCount > 1 ? "s ($sessionCount)" : ""),
-                                'quantity' => 1,
-                                'currency' => 'PHP',
-                                'amount' => $amount * 100, // Convert to cents
-                            ]
-                        ],
-                        'payment_method_types' => ['gcash'],
-                        'success_url' => env('PAYMONGO_SUCCESS_URL') . "?student_id=$studentId&session_count=$sessionCount&amount=$amount",
-                        'cancel_url' => env('PAYMONGO_CANCEL_URL'),
+            // Validate required environment variables
+            $paymongoSecretKey = env('PAYMONGO_SECRET_KEY');
+            $paymongoSuccessUrl = env('PAYMONGO_SUCCESS_URL');
+            $paymongoCancelUrl = env('PAYMONGO_CANCEL_URL');
+
+            if (!$paymongoSecretKey || !$paymongoSuccessUrl || !$paymongoCancelUrl) {
+                Log::error('PayMongo environment variables not configured', [
+                    'PAYMONGO_SECRET_KEY' => $paymongoSecretKey ? 'SET' : 'NOT SET',
+                    'PAYMONGO_SUCCESS_URL' => $paymongoSuccessUrl ?: 'NOT SET',
+                    'PAYMONGO_CANCEL_URL' => $paymongoCancelUrl ?: 'NOT SET'
+                ]);
+                return back()->with('error', 'Payment system configuration error. Please contact support.');
+            }
+
+            $response = Http::withToken($paymongoSecretKey)
+                ->timeout(30)
+                ->post('https://api.paymongo.com/v1/checkout_sessions', [
+                    'data' => [
+                        'attributes' => [
+                            'line_items' => [
+                                [
+                                    'name' => "Modular Class Session" . ($sessionCount > 1 ? "s ($sessionCount)" : ""),
+                                    'quantity' => 1,
+                                    'currency' => 'PHP',
+                                    'amount' => $amount * 100, // Convert to cents
+                                ]
+                            ],
+                            'payment_method_types' => ['gcash'],
+                            'success_url' => $paymongoSuccessUrl . "?student_id=$studentId&session_count=$sessionCount&amount=$amount",
+                            'cancel_url' => $paymongoCancelUrl,
+                        ]
                     ]
-                ]
-            ]);
+                ]);
 
-        if ($response->successful()) {
-            $checkoutURL = $response->json()['data']['attributes']['checkout_url'];
-            return redirect($checkoutURL);
-        } else {
-            return back()->with('error', 'Unable to create payment session.');
+            if ($response->successful()) {
+                $responseData = $response->json();
+                if (isset($responseData['data']['attributes']['checkout_url'])) {
+                    $checkoutURL = $responseData['data']['attributes']['checkout_url'];
+                    Log::info('PayMongo checkout session created successfully', [
+                        'student_id' => $studentId,
+                        'amount' => $amount,
+                        'session_count' => $sessionCount
+                    ]);
+                    return redirect($checkoutURL);
+                } else {
+                    Log::error('PayMongo response missing checkout_url', ['response' => $responseData]);
+                    return back()->with('error', 'Invalid response from payment provider.');
+                }
+            } else {
+                $errorResponse = $response->json();
+                Log::error('PayMongo API error', [
+                    'status' => $response->status(),
+                    'response' => $errorResponse,
+                    'student_id' => $studentId
+                ]);
+                return back()->with('error', 'Unable to create payment session. Please try again.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Payment checkout failed', [
+                'error' => $e->getMessage(),
+                'student_id' => Auth::user()->id ?? 'unknown'
+            ]);
+            return back()->with('error', 'Payment system temporarily unavailable. Please try again later.');
         }
     }
 
