@@ -70,8 +70,8 @@ RUN echo "APP_NAME=\"Bohol Northern Star College\"" > .env && \
     echo "DB_USERNAME=\${DATABASE_USER:-modular_system_user}" >> .env && \
     echo "DB_PASSWORD=\${DATABASE_PASSWORD}" >> .env && \
     echo "" >> .env && \
-    echo "PAYMONGO_PUBLIC_KEY=\${PAYMONGO_PUBLIC_KEY:-pk_test_zmmTaLjgk6pfav3LVsHnxzMX}" >> .env && \
-    echo "PAYMONGO_SECRET_KEY=\${PAYMONGO_SECRET_KEY:-sk_test_72uUhgeM88acLxyEsF6hNQZp}" >> .env && \
+    echo "PAYMONGO_PUBLIC_KEY=\${PAYMONGO_PUBLIC_KEY}" >> .env && \
+    echo "PAYMONGO_SECRET_KEY=\${PAYMONGO_SECRET_KEY}" >> .env && \
     echo "PAYMONGO_SUCCESS_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}/payment/success" >> .env && \
     echo "PAYMONGO_CANCEL_URL=\${RENDER_EXTERNAL_URL:-http://localhost:8000}/payment/cancel" >> .env
 
