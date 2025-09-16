@@ -95,12 +95,23 @@ RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php8
 RUN echo '#!/bin/sh' > /start.sh && \
     echo 'echo "Setting up Laravel..."' >> /start.sh && \
     echo 'cd /var/www' >> /start.sh && \
+    echo 'echo "Current directory: $(pwd)"' >> /start.sh && \
+    echo 'echo "Files in /var/www: $(ls -la)"' >> /start.sh && \
+    echo 'echo "Environment check:"' >> /start.sh && \
+    echo 'echo "APP_KEY: $(echo $APP_KEY | cut -c1-10)..."' >> /start.sh && \
+    echo 'echo "DB_CONNECTION: $DB_CONNECTION"' >> /start.sh && \
+    echo 'echo "DB_HOST: $DB_HOST"' >> /start.sh && \
     echo 'touch /var/www/storage/logs/laravel.log' >> /start.sh && \
     echo 'chown nginx:nginx /var/www/storage/logs/laravel.log' >> /start.sh && \
     echo 'chmod 664 /var/www/storage/logs/laravel.log' >> /start.sh && \
     echo 'php artisan storage:link || echo "Storage link already exists"' >> /start.sh && \
+    echo 'php artisan config:clear || echo "Config clear failed"' >> /start.sh && \
+    echo 'php artisan cache:clear || echo "Cache clear failed"' >> /start.sh && \
+    echo 'php artisan view:clear || echo "View clear failed"' >> /start.sh && \
     echo 'php artisan config:cache || echo "Config cache failed"' >> /start.sh && \
     echo 'php artisan route:cache || echo "Route cache failed"' >> /start.sh && \
+    echo 'echo "Testing database connection..."' >> /start.sh && \
+    echo 'php artisan tinker --execute="echo DB::connection()->getPdo() ? \"DB Connected\" : \"DB Failed\";" || echo "DB test failed"' >> /start.sh && \
     echo 'echo "Starting PHP-FPM..."' >> /start.sh && \
     echo 'php-fpm83 -D' >> /start.sh && \
     echo 'echo "Starting Nginx..."' >> /start.sh && \
