@@ -83,8 +83,10 @@ RUN mkdir -p /var/www/storage/logs && \
     chmod -R 775 /var/www/storage && \
     chmod -R 775 /var/www/bootstrap/cache
 
-# Configure PHP-FPM to listen on port 9000 (simplified)
+# Configure PHP-FPM to run as nginx user
 RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php83/php-fpm.d/www.conf && \
+    sed -i 's/user = nobody/user = nginx/' /etc/php83/php-fpm.d/www.conf && \
+    sed -i 's/group = nobody/group = nginx/' /etc/php83/php-fpm.d/www.conf && \
     sed -i 's/;listen.owner = nginx/listen.owner = nginx/' /etc/php83/php-fpm.d/www.conf && \
     sed -i 's/;listen.group = nginx/listen.group = nginx/' /etc/php83/php-fpm.d/www.conf && \
     sed -i 's/;listen.mode = 0660/listen.mode = 0660/' /etc/php83/php-fpm.d/www.conf
@@ -93,6 +95,9 @@ RUN sed -i 's/listen = \/run\/php-fpm83.sock/listen = 127.0.0.1:9000/' /etc/php8
 RUN echo '#!/bin/sh' > /start.sh && \
     echo 'echo "Setting up Laravel..."' >> /start.sh && \
     echo 'cd /var/www' >> /start.sh && \
+    echo 'touch /var/www/storage/logs/laravel.log' >> /start.sh && \
+    echo 'chown nginx:nginx /var/www/storage/logs/laravel.log' >> /start.sh && \
+    echo 'chmod 664 /var/www/storage/logs/laravel.log' >> /start.sh && \
     echo 'php artisan storage:link || echo "Storage link already exists"' >> /start.sh && \
     echo 'php artisan config:cache || echo "Config cache failed"' >> /start.sh && \
     echo 'php artisan route:cache || echo "Route cache failed"' >> /start.sh && \
